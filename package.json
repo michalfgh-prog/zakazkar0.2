@@ -1,0 +1,9 @@
+{
+  "name": "zakazkar",
+  "version": "2.0.0",
+  "private": true,
+  "description": "Zakázkář — jedna responzivní aplikace pro vyhledávání zakázek, CRM, chat a komunitní tipy",
+  "engines": { "node": ">=20" },
+  "scripts": { "start": "node server.js" },
+  "dependencies": { "pg": "^8.23.1" }
+}
