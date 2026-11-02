@@ -448,13 +448,13 @@
     <div id="view-sources" class="hidden">
       <div class="card">
         <h2 class="card-title">Sledované poptávkové portály — Moravskoslezský kraj</h2>
-        <p style="color:var(--muted);font-size:13.5px;margin:0 0 4px">Vyberte, které portály má sken prohledávat. Národní portály (Sbazar, AAA Poptávka, Nevyhazujto…) se automaticky filtrují jen na zakázky z MSK — podle měst, PSČ (700–749, 78x, 79x) a zmínky kraje.</p>
+        <p style="color:var(--muted);font-size:13.5px;margin:0 0 4px">Vyberte, které portály má sken prohledávat. Národní portály (AAA Poptávka, Nevyhazujto…) se automaticky filtrují jen na zakázky z MSK — podle měst, PSČ (700–749, 78x, 79x) a zmínky kraje.</p>
         <div class="usage" style="margin-top:14px">
           <div class="lbl"><span id="portal-count"></span><span id="portal-total"></span></div>
           <div class="bar"><i id="portal-bar"></i></div>
         </div>
         <div class="portal-grid" id="portal-checkboxes"></div>
-        <p style="color:var(--muted);font-size:12.5px;margin:16px 0 0">⏱ Doporučená frekvence: inzertní zdroje (Avízo, Bazoš) skenovat každých 15–30 minut — u stěhování a havárií rozhodují minuty. Poptávkové systémy stačí 2–3× denně.</p>
+        <p style="color:var(--muted);font-size:12.5px;margin:16px 0 0">⏱ Doporučená frekvence: inzertní zdroje (Bazoš) skenovat každých 15–30 minut — u stěhování a havárií rozhodují minuty. Poptávkové systémy stačí 2–3× denně.</p>
       </div>
     </div>
 
@@ -523,10 +523,11 @@ const SOURCES = [
   { id:'epoptavka', name:'ePoptávka.cz', tag:'poptávky', scan:true, url:'https://poptavky.epoptavka.cz/moravskoslezsky-kraj' },
   { id:'poptavej', name:'Poptávej.cz — řemesla MSK', tag:'poptávky', scan:true, url:'https://www.poptavej.cz/poptavky/remesla/kraj-moravskoslezsky' },
   { id:'poptavky', name:'Poptávky.cz', tag:'poptávky', scan:true, url:'https://www.poptavky.cz/poptavky/moravskoslezsky-kraj' },
-  { id:'nejremeslnici', name:'Nejřemeslníci.cz', tag:'poptávky', scan:true, url:'https://nejremeslnici.cz/poptavky?kraj=moravskoslezsky' },
   { id:'poptavkaeu', name:'Poptávka-EU.cz', tag:'poptávky', scan:true, url:'https://www.poptavka-eu.cz/kraje/CZ080/?filter=0' },
-  { id:'trh', name:'TrhPoptávek.cz', tag:'poptávky', scan:true, url:'https://trhpoptavek.cz/remesla/moravskoslezsky-kraj' },
   { id:'zakazky', name:'Zakázky.služby.cz', tag:'poptávky', scan:true, url:'https://zakazky.sluzby.cz/remesla-profese/moravskoslezsky-kraj' },
+  { id:'firmyzarohem', name:'Firmyzarohem.cz — řemesla MSK', tag:'poptávky', scan:true, url:'https://www.firmyzarohem.cz/zakazky/remesla/kraj/moravskoslezsky' },
+  { id:'firmyzarohem-stav', name:'Firmyzarohem.cz — stavebnictví MSK', tag:'poptávky', scan:true, url:'https://www.firmyzarohem.cz/zakazky/stavebnictvi/kraj/moravskoslezsky' },
+  { id:'firmyzarohem-sluzby', name:'Firmyzarohem.cz — služby MSK', tag:'poptávky', scan:true, url:'https://www.firmyzarohem.cz/zakazky/sluzby/kraj/moravskoslezsky' },
   { id:'aaapoptavka', name:'AAA Poptávka.cz', tag:'poptávky', scan:true, url:'https://www.aaapoptavka.cz/poptavky/prace' },
   { id:'aaasubdodavky', name:'AAA Poptávka — subdodávky', tag:'subdodávky', scan:true, url:'https://www.aaapoptavka.cz/poptavky/subdodavky' },
   { id:'pop24', name:'Pop24.cz', tag:'poptávky', scan:true, url:'https://pop24.cz/' },
@@ -536,9 +537,7 @@ const SOURCES = [
   { id:'ubo', name:'UBO.cz', tag:'poptávky', scan:true, url:'https://www.ubo.cz/' },
   { id:'dalbovac', name:'Dalbovač.cz', tag:'poptávky', scan:true, url:'https://www.dalbovac.cz/' },
   { id:'nejstav', name:'NejStav.cz', tag:'poptávky', scan:true, url:'https://nejstav.cz/' },
-  { id:'avizo', name:'Avízo.cz (služby a řemesla)', tag:'inzerce', scan:true, url:'https://www.avizo.cz/sluzby-remesla/' },
   { id:'bazos', name:'Bazoš.cz (služby)', tag:'inzerce', scan:true, url:'https://sluzby.bazos.cz/moravskoslezsky/' },
-  { id:'sbazar', name:'Sbazar.cz (služby)', tag:'inzerce', scan:true, url:'https://www.sbazar.cz/sluzby' },
   { id:'supersoused', name:'SuperSoused.cz', tag:'drobné práce', scan:true, url:'https://www.supersoused.cz/' },
   { id:'nevyhazujto', name:'Nevyhazujto.cz', tag:'inzerce', scan:true, url:'https://www.nevyhazujto.cz/' },
   { id:'vsezaodvoz', name:'Všezaodvoz.cz', tag:'inzerce', scan:true, url:'https://www.vsezaodvoz.cz/' }
