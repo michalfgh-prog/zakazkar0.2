@@ -8,13 +8,14 @@ const PORT = Number(process.env.PORT) || 8766;
 const DATA_DIR = process.env.DATA_DIR || path.join(ROOT, 'data');
 const DATA_FILE = path.join(DATA_DIR, 'online-data.json');
 const DATABASE_URL = process.env.DATABASE_URL || '';
-const APP_VERSION = '2.0.0';
+const APP_VERSION = '2.1.0';
 const READER = 'https://r.jina.ai/';
 const MAX_BODY = 64 * 1024;
 const MIN_READER_INTERVAL_MS = 3100;
 let onlineData = { users:[], sessions:[], messages:[], posts:[] };
 try { onlineData = { ...onlineData, ...JSON.parse(fs.readFileSync(DATA_FILE, 'utf8')) }; } catch {}
 onlineData.posts ||= [];
+onlineData.ui ||= { sourcesHidden:false };
 const onlinePresence = new Map();
 let dbPool = null;
 async function initializeDatabase() {
@@ -44,7 +45,11 @@ async function initializeDatabase() {
       payload JSONB NOT NULL, created BIGINT NOT NULL
     );
     CREATE INDEX IF NOT EXISTS community_posts_created_idx ON community_posts(created DESC);
+    CREATE TABLE IF NOT EXISTS app_settings (
+      key TEXT PRIMARY KEY, value JSONB NOT NULL
+    );
   `);
+  try { const {rows}=await dbPool.query(`SELECT value FROM app_settings WHERE key='ui'`); if (rows[0] && rows[0].value) onlineData.ui={ ...onlineData.ui, ...rows[0].value }; } catch {}
   for (const u of onlineData.users) {
     await dbPool.query(`INSERT INTO app_users(id,name,email,role,password_hash,salt,created)
       VALUES($1,$2,$3,$4,$5,$6,$7) ON CONFLICT(email) DO NOTHING`,
@@ -373,6 +378,29 @@ function sendHtml(res) {
 }
 async function handleOnlineApi(req,res,url) {
   try {
+    if (req.method==='GET' && url.pathname==='/api/users/directory') {
+      const user=await currentUser(req);
+      if(!user) return json(res,401,{error:'Přihlaste se pro zobrazení uživatelů.'});
+      const now=Date.now();
+      const users=onlineData.users.map(u=>({ id:u.id, name:u.name, email:u.email, role:u.role||'user', online: now-(onlinePresence.get(u.id)||0)<45000 }));
+      return json(res,200,{ users, sourcesHidden: !!(onlineData.ui&&onlineData.ui.sourcesHidden) });
+    }
+    if (url.pathname==='/api/admin/source-visibility') {
+      const user=await currentUser(req);
+      if(!user || user.role!=='admin') return json(res,403,{error:'Toto nastavení může měnit pouze správce.'});
+      if (req.method==='GET') return json(res,200,{ sourcesHidden: !!(onlineData.ui&&onlineData.ui.sourcesHidden) });
+      if (req.method==='POST') {
+        const input=await readJson(req);
+        onlineData.ui={ ...onlineData.ui, sourcesHidden: !!input.hidden };
+        if (dbPool) {
+          await dbPool.query(`INSERT INTO app_settings(key,value) VALUES('ui',$1::jsonb)
+            ON CONFLICT(key) DO UPDATE SET value=EXCLUDED.value`,[JSON.stringify(onlineData.ui)]);
+        }
+        saveOnlineData();
+        return json(res,200,{ sourcesHidden: onlineData.ui.sourcesHidden });
+      }
+      return json(res,404,{error:'Nenalezeno.'});
+    }
     if (req.method==='GET' && url.pathname==='/api/auth/me') {
       const user=await currentUser(req); return user ? json(res,200,{user:publicUser(user)}) : json(res,401,{error:'Nejste přihlášeni.'});
     }
@@ -507,11 +535,18 @@ const server = http.createServer((req, res) => {
       .catch(()=>json(res,503,{ok:false,version:APP_VERSION,scanner:true,chat:true,database:'unavailable',feedStorage:'unavailable',sources:SOURCES.length}));
     return;
   }
+  if (req.method === 'GET' && url.pathname.startsWith('/r/')) {
+    try {
+      const target = Buffer.from(url.pathname.slice(3), 'base64url').toString('utf8');
+      if (/^https?:\/\//i.test(target)) { res.writeHead(302, { Location: target }); res.end(); return; }
+    } catch {}
+    return json(res, 404, { error:'Nenalezeno.' });
+  }
   if (req.method === 'GET' && (url.pathname === '/' || url.pathname === '/index.html')) return sendHtml(res);
   if (req.method === 'GET' && ['/mobilni-zakazkar.html','/zakazkar-vylepsena.html'].includes(url.pathname)) {
     res.writeHead(301, { Location:'/' }); res.end(); return;
   }
-  if (url.pathname.startsWith('/api/auth/') || url.pathname.startsWith('/api/chat/') || url.pathname.startsWith('/api/feed/')) return handleOnlineApi(req,res,url);
+  if (url.pathname.startsWith('/api/auth/') || url.pathname.startsWith('/api/chat/') || url.pathname.startsWith('/api/feed/') || url.pathname.startsWith('/api/users/') || url.pathname.startsWith('/api/admin/')) return handleOnlineApi(req,res,url);
   if (req.method === 'POST' && url.pathname === '/api/scan') {
     let body = '';
     req.on('data', chunk => {
@@ -526,6 +561,17 @@ const server = http.createServer((req, res) => {
         if (!keywords.length) return json(res, 400, { error:'Nejdříve nastavte obory, které hledáte.' });
         if (!sourceIds.length) return json(res, 400, { error:'Vyberte alespoň jeden zdroj v nastavení portálů.' });
         const result = await scanSources(sourceIds, keywords);
+        const scanUser = await currentUser(req);
+        const sourcesHidden = !!(onlineData.ui && onlineData.ui.sourcesHidden) && !(scanUser && scanUser.role==='admin');
+        if (sourcesHidden) {
+          result.items = result.items.map(item => {
+            let token = '';
+            try { token = Buffer.from(item.url).toString('base64url'); } catch {}
+            return { ...item, source:'Zakázkář', url: token ? ('/r/' + token) : item.url };
+          });
+          result.sources = result.sources.map((s, i) => ({ sourceId:'zdroj'+(i+1), source:'Zdroj '+(i+1), count:s.count, error:s.error }));
+        }
+        result.sourcesHidden = sourcesHidden;
         return json(res, 200, result);
       } catch (error) {
         return json(res, 400, { error:`Sken se nepodařilo spustit: ${String(error.message || error).slice(0, 160)}` });
