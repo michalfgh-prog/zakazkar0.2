@@ -232,6 +232,11 @@
   .feed-heading h2{font-size:18px;margin:0}
   .feed-heading span{color:var(--muted);font-size:12.5px}
 
+  /* ---------- uživatelé ---------- */
+  .user-row{display:flex;align-items:center;gap:11px;padding:11px 0;border-bottom:1px solid var(--border);flex-wrap:wrap}
+  .user-row:last-child{border-bottom:none}
+  .user-row .tip-author small{display:block;color:var(--muted);font-size:12px}
+
   /* ---------- image library ---------- */
   .image-library{background:var(--panel);border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin-bottom:16px;box-shadow:var(--shadow)}
   .image-library-head{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:12px;flex-wrap:wrap}
@@ -306,6 +311,7 @@
     <div class="nav-item" role="button" tabindex="0" data-view="jobs" onclick="setView('jobs')"><span>📋</span> Zakázky <span class="n" id="nav-newcount"></span></div>
     <div class="nav-item" role="button" tabindex="0" data-view="chat" onclick="setView('chat')"><span>💬</span> Chat <span class="n" id="nav-chatcount"></span></div>
     <div class="nav-item" role="button" tabindex="0" data-view="tips" onclick="setView('tips')"><span>📰</span> Naše tipy</div>
+    <div class="nav-item" role="button" tabindex="0" data-view="users" onclick="setView('users')"><span>👥</span> Uživatelé</div>
     <div class="nav-item" role="button" tabindex="0" data-view="favorites" onclick="setView('favorites')"><span>⭐</span> Oblíbené</div>
     <div class="nav-item" role="button" tabindex="0" data-view="keywords" onclick="setView('keywords')"><span>🎯</span> Klíčová slova</div>
     <div class="nav-item" role="button" tabindex="0" data-view="sources" onclick="setView('sources')"><span>📡</span> Portály</div>
@@ -431,6 +437,14 @@
       <div class="tips-feed" id="tips-feed"><div class="card">Načítám příspěvky…</div></div>
     </div>
 
+    <!-- UŽIVATELÉ -->
+    <div id="view-users" class="hidden">
+      <div class="card">
+        <h2 class="card-title">Registrovaní uživatelé</h2>
+        <div id="users-directory"><div class="empty">Načítám uživatele…</div></div>
+      </div>
+    </div>
+
     <!-- KLÍČOVÁ SLOVA -->
     <div id="view-keywords" class="hidden">
       <div class="card">
@@ -448,7 +462,7 @@
     <div id="view-sources" class="hidden">
       <div class="card">
         <h2 class="card-title">Sledované poptávkové portály — Moravskoslezský kraj</h2>
-        <p style="color:var(--muted);font-size:13.5px;margin:0 0 4px">Vyberte, které portály má sken prohledávat. Národní portály (AAA Poptávka, Nevyhazujto…) se automaticky filtrují jen na zakázky z MSK — podle měst, PSČ (700–749, 78x, 79x) a zmínky kraje.</p>
+        <p style="color:var(--muted);font-size:13.5px;margin:0 0 4px">Vyberte, které portály má sken prohledávat. Národní portály (AAA Poptávka, Bazoš, Nevyhazujto…) se automaticky filtrují jen na zakázky z MSK — podle měst, PSČ (700–749, 78x, 79x) a zmínky kraje.</p>
         <div class="usage" style="margin-top:14px">
           <div class="lbl"><span id="portal-count"></span><span id="portal-total"></span></div>
           <div class="bar"><i id="portal-bar"></i></div>
@@ -472,6 +486,7 @@
         <h2 class="card-title">Vzhled a skenování</h2>
         <div class="setting-row"><div class="info"><b>Tmavý režim</b><span>Přepnout světlý a tmavý vzhled aplikace.</span></div><label class="switch"><input type="checkbox" id="set-dark" onchange="darkSettingChanged(this)"><i></i></label></div>
         <div class="setting-row"><div class="info"><b>Automatický sken při otevření</b><span>Pokud uplynulo více než 24 hodin od posledního skenu, spustí se sken automaticky.</span></div><label class="switch"><input type="checkbox" id="set-autoscan" checked onchange="saveSettings()"><i></i></label></div>
+        <div class="setting-row" id="admin-sources-row" style="display:none"><div class="info"><b>Skrýt zdroje zakázek (správce)</b><span>Ostatní uživatelé nevidí, ze kterého portálu zakázka pochází, ani adresu odkazu.</span></div><label class="switch"><input type="checkbox" id="set-hide-sources" onchange="toggleHideSources(this)"><i></i></label></div>
         <div class="setting-row"><div class="info"><b>Sken v otevřené aplikaci</b><span>Opakovaný sken podle intervalu, dokud je aplikace otevřená. Dostupnost zdrojů závisí na portálech.</span></div>
           <select id="set-scanmin" class="status-select" style="max-width:none" onchange="saveSettings()">
             <option value="0">Vypnuto</option>
@@ -564,12 +579,13 @@ let currentView = 'dashboard';
 let currentTab = 'all';
 let running = false;
 let chatThreads = [], activeChatId = null, activeChatPeer = null, chatMessages = [];
-let chatPollTimer = null, chatUserSearchTimer = null, presenceTimer = null, tipsPollTimer = null, autoTimer = null;
+let chatPollTimer = null, chatUserSearchTimer = null, presenceTimer = null, tipsPollTimer = null, usersPollTimer = null, autoTimer = null;
 let tipImageData = '';
 let noteUrl = null;
 
 function isDemandLeadRecord(lead){
-  if (!lead || !/^https?:\/\//i.test(String(lead.url||'')) || String(lead.title||'').trim().length < 14) return false;
+  const u=String((lead&&lead.url)||'');
+  if (!lead || !(/^https?:\/\//i.test(u) || u.startsWith('/r/')) || String(lead.title||'').trim().length < 14) return false;
   const text = (String(lead.title||'')+' '+String(lead.excerpt||'')).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
   if (/#demo-|image\s*\d|registrace|prihlaseni|vytvorte si zdarma|uspesne ukonceno|vyzkouset nyni|vlastni www stranky|e shop|webove stranky|volne misto|pracovni pozice|pracovni nabidka|zivotopis|mzda|prijmeme|hledame zamestnance/.test(text)) return false;
   return /poptav|hledam|hledame|shanim|shanime|potrebuji|potrebujeme|poptavam|poptavame|zakazku|zakazka|oprava|rekonstrukce|montaz|realizace|vymena|instalace|vyroba|zhotoveni|pokladka|bourani|vyklizeni|stehovani|odvoz|demontaz|zatepleni|vymalba|malovani|omitani|betonaz|likvidace|opravit|postavit/.test(text);
@@ -582,7 +598,7 @@ function leadSignature(lead){
 function dedupeLeadRecords(records){
   const urls=new Set(), signatures=new Set(), result=[];
   for (const lead of records){
-    if (!isDemandLeadRecord(lead) || !SOURCE_BY_NAME.has(lead.source)) continue;
+    if (!isDemandLeadRecord(lead) || !(SOURCE_BY_NAME.has(lead.source) || lead.source==='Zakázkář')) continue;
     const signature=leadSignature(lead), url=String(lead.url||'').split('#')[0];
     if (urls.has(url) || (signature && signatures.has(signature))) continue;
     urls.add(url); if (signature) signatures.add(signature); result.push(lead);
@@ -667,6 +683,7 @@ const VIEW_TITLES = {
   jobs:['Zakázky','Poptávky z Moravskoslezského kraje'],
   chat:['Chat','Konverzace k zakázkám a kontaktům'],
   tips:['Naše tipy','Nabídky a doporučení komunity'],
+  users:['Uživatelé','Registrované účty a online stav'],
   favorites:['Oblíbené','Zakázky, které jste si uložili'],
   keywords:['Klíčová slova','Co má Zakázkář hledat'],
   sources:['Portály','Zdroje poptávek pro MSK'],
@@ -675,13 +692,15 @@ const VIEW_TITLES = {
 function setView(v){
   currentView = v;
   $$('.nav-item').forEach(n => { n.classList.toggle('active', n.dataset.view===v); n.setAttribute('aria-current', n.dataset.view===v?'page':'false'); });
-  ['dashboard','jobs','chat','tips','favorites','keywords','sources','settings'].forEach(name => $('#view-'+name).classList.toggle('hidden', name!==v));
+  ['dashboard','jobs','chat','tips','users','favorites','keywords','sources','settings'].forEach(name => $('#view-'+name).classList.toggle('hidden', name!==v));
   $('#view-title').textContent = VIEW_TITLES[v][0];
   $('#view-crumb').textContent = (me ? me.name.split(/\s+/)[0] : '') + ' · ' + VIEW_TITLES[v][1];
   if (chatPollTimer){ clearInterval(chatPollTimer); chatPollTimer=null; }
   if (tipsPollTimer){ clearInterval(tipsPollTimer); tipsPollTimer=null; }
+  if (usersPollTimer){ clearInterval(usersPollTimer); usersPollTimer=null; }
   if (v==='chat'){ renderChat(); refreshChatThreads(); chatPollTimer=setInterval(()=>{ refreshChatThreads(); if(activeChatId) refreshChatMessages(); },4000); }
   if (v==='tips'){ loadTips(); tipsPollTimer=setInterval(()=>loadTips(true),15000); }
+  if (v==='users'){ refreshUsersDirectory(); usersPollTimer=setInterval(refreshUsersDirectory,15000); }
   closeSidebar();
   window.scrollTo({ top:0, behavior:'smooth' });
 }
@@ -722,6 +741,9 @@ function enterApp(){
   const role=$('#set-role'); role.textContent = me.role==='admin' ? 'Správce' : 'Uživatel'; role.className='badge'+(me.role==='admin'?' admin':'');
   $('#set-autoscan').checked = !!settings.autoscan;
   $('#set-scanmin').value = String(settings.scanmin||0);
+  const adminRow=$('#admin-sources-row');
+  if (adminRow) adminRow.style.display = me.role==='admin' ? '' : 'none';
+  if (me.role==='admin') api('/api/admin/source-visibility').then(d=>{ const cb=$('#set-hide-sources'); if(cb) cb.checked=!!d.sourcesHidden; }).catch(()=>{});
   renderDashboard(); renderLeads(); renderFavorites(); renderKeywords(); renderPortals(); renderChat(); loadTips();
   initImageLibrary();
   if (presenceTimer) clearInterval(presenceTimer);
@@ -838,10 +860,12 @@ function toggleFav(url, btn){
   renderFavorites(); renderDashboard();
 }
 function copyLink(url){
-  (navigator.clipboard?.writeText(url) || Promise.reject()).then(()=>toast('Odkaz zkopírován.','ok')).catch(()=>toast('Kopírování se nepodařilo.','warn'));
+  const absolute = url.startsWith('/r/') ? location.origin+url : url;
+  (navigator.clipboard?.writeText(absolute) || Promise.reject()).then(()=>toast('Odkaz zkopírován.','ok')).catch(()=>toast('Kopírování se nepodařilo.','warn'));
 }
 function shareOnFacebook(url){
-  window.open('https://www.facebook.com/sharer/sharer.php?u='+encodeURIComponent(url), '_blank', 'noopener,width=640,height=580');
+  const absolute = url.startsWith('/r/') ? location.origin+url : url;
+  window.open('https://www.facebook.com/sharer/sharer.php?u='+encodeURIComponent(absolute), '_blank', 'noopener,width=640,height=580');
 }
 
 /* ---- výpis zakázek ---- */
@@ -863,7 +887,7 @@ function renderLeads(){
     return;
   }
   data.sort((a,b)=>(b.isNew?1:0)-(a.isNew?1:0) || (b.found||0)-(a.found||0));
-  wrap.innerHTML = data.length ? data.map(leadCard).join('') : '<div class="empty"><div class="big">📭</div>Zatím žádné zakázky.<br>Spusťte sken tlačítkem „Skenovat“.</div>';
+  wrap.innerHTML = data.length ? data.map(leadCard).join('') : '<div class="empty"><div class="big">📭</div>Zatím žádné zakázky.<br>Spusťte sken tlačítkem „Skenovat".</div>';
 }
 function renderFavorites(){
   const wrap=$('#fav-list'); if (!wrap) return;
@@ -906,7 +930,7 @@ function exportCsv(){
   const data = currentTab==='fav' ? leads.filter(l=>favs.includes(l.url)) : leads;
   if (!data.length) return toast('Není co exportovat.','warn');
   const rows=[['Název','Portál','Lokalita','Odkaz']];
-  data.forEach(l=>rows.push([l.title,l.source,l.location||'MSK',l.url]));
+  data.forEach(l=>rows.push([l.title,l.source,l.location||'MSK', l.url.startsWith('/r/')?location.origin+l.url:l.url]));
   const csv=rows.map(r=>r.map(v=>'"'+String(v).replace(/"/g,'""')+'"').join(',')).join('\r\n');
   const a=document.createElement('a');
   a.href=URL.createObjectURL(new Blob(['\ufeff'+csv],{type:'text/csv;charset=utf-8'}));
@@ -1174,6 +1198,47 @@ async function sendChatMessage(event){
     await refreshChatMessages();
   }catch(error){ toast(error.message,'warn'); }
   finally{ button.disabled=false; input.focus(); }
+}
+
+/* ---- uživatelé ---- */
+async function refreshUsersDirectory(){
+  if (!me) return;
+  const wrap=$('#users-directory'); if (!wrap) return;
+  try{
+    const data=await api('/api/users/directory');
+    renderUsersDirectory(data.users||[]);
+  }catch(error){
+    wrap.innerHTML='<div class="empty">'+esc(error.message)+'</div>';
+  }
+}
+function renderUsersDirectory(users){
+  const wrap=$('#users-directory'); if (!wrap) return;
+  if (!users.length){ wrap.innerHTML='<div class="empty"><div class="big">👤</div>Zatím žádní další uživatelé.</div>'; return; }
+  wrap.innerHTML=users.map(u=>{
+    const initials=String(u.name||'?').trim().split(/\s+/).map(w=>w[0]).slice(0,2).join('').toUpperCase();
+    return '<div class="user-row">'
+      +'<div class="tip-avatar">'+esc(initials||'?')+'</div>'
+      +'<div class="tip-author"><strong>'+esc(u.name)+(u.id===me.id?' (vy)':'')+'</strong><small>'+esc(u.email)+' · '+(u.online?'🟢 online':'⚪ offline')+'</small></div>'
+      +'<span class="badge'+(u.role==='admin'?' admin':'')+'" style="margin-left:auto">'+(u.role==='admin'?'Správce':'Uživatel')+'</span>'
+      +(u.id!==me.id?'<button class="btn small ghost" type="button" data-chat-id="'+esc(u.id)+'" data-chat-name="'+esc(u.name)+'" data-chat-email="'+esc(u.email)+'" style="margin-left:8px">💬 Napsat</button>':'')
+      +'</div>';
+  }).join('');
+  wrap.querySelectorAll('[data-chat-id]').forEach(b=>b.addEventListener('click', ()=>{
+    setView('chat');
+    beginChatWith(b.dataset.chatId, b.dataset.chatName, b.dataset.chatEmail);
+  }));
+}
+
+/* ---- skrytí zdrojů (správce) ---- */
+async function toggleHideSources(cb){
+  try{
+    const d=await api('/api/admin/source-visibility', { method:'POST', body:JSON.stringify({ hidden:cb.checked }) });
+    cb.checked=!!d.sourcesHidden;
+    toast(d.sourcesHidden?'Zdroje zakázek jsou pro ostatní skryté.':'Zdroje zakázek jsou viditelné.','ok');
+  }catch(error){
+    cb.checked=!cb.checked;
+    toast(error.message,'warn');
+  }
 }
 
 /* ---- tipy komunity ---- */
